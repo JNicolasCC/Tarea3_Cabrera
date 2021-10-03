@@ -1,0 +1,173 @@
+---
+title: "Tarea 3"
+author: "Jairo Nicolas Cabrera"
+date: "10/3/2021"
+output: pdf_document
+header-includes:
+  - \usepackage[spanish]{babel}
+  - \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(magrittr)
+library(dplyr)
+library(visdat)
+```
+
+
+## Solucion
+
+### Parte 2
+
+3. Use la siguiente función para descargar de la API del Banco Mundial la información de los indicadores
+NY.ADJ.NNTY.PC.KD, que contiene el ingreso nacional percapita neto ajustado, y SP.DYN.LE00.IN
+que contiene la expectativa de vida al nacer para ambos sexos.
+
+```{r}
+a <- WDI::WDI(country = 'all', indicator = c("NY.ADJ.NNTY.PC.KD", "SP.DYN.LE00.IN"),
+                     start = 2000, end = 2020, extra = TRUE)
+a <- a[a$region != 'Aggregates', ]
+```
+
+4. Descargue la librería countrycode. Especifique que desea el nombre de los países en español mediante
+la opción destination = “un.name.es”
+
+```{r}
+library(countrycode)
+a$country <- countrycode::countryname(sourcevar = a$country, destination = "un.name.es")
+```
+
+5. Cambie el nombre de las variables NY.ADJ.NNTY.PC.KD y SP.DYN.LE00.IN por ing_percapita_ajustado
+y expectativa_vida, respectivamente.
+
+```{r}
+a %<>% rename(ing_percapita_ajustado=NY.ADJ.NNTY.PC.KD)
+a %<>% rename(expectativa_vida= SP.DYN.LE00.IN)
+```
+
+6. Filtre la base para que sólo queden registros con nombre de region diferente a NA.
+
+```{r}
+library(naniar)
+a %<>% drop_na(region)
+```
+
+7. Reorganice las variables para que aparezcan las siguientes al comienzo de la base de datos: region,
+income_level, country, year, ing_percapita_ajustado y expectativa_vida.
+
+```{r}
+a %<>% relocate(c(region,income, country, year, ing_percapita_ajustado,expectativa_vida))
+```
+
+8. Usando la base anterior, cree una base de datos que solamente contenga las variables country, year,
+region, income, ing_percapita_ajustado y expectativa_vida. Esta base debe llamarse bm_principales.
+Use alguna función del paquete naniar para explorar los valores faltantes en esta base. ¿Cuál variable
+parece tener mayor número de valores faltantes?
+
+```{r}
+bm_principales = a %>% select(country, year,region, income, ing_percapita_ajustado , expectativa_vida) 
+(naniar::miss_var_summary(bm_principales))
+```
+
+La variable con mayor cantidad de valores faltantes es ing_percapita_ajustado.
+
+9. Use la función gg_miss_fct() para mostrar el comportamiento de los valores faltantes en esta base
+de datos, de acuerdo con las categorías de la variable region. ¿En cuál región parecen haber más
+valores faltantes para las variables expectativa_vida e ing_percapita_ajustado? Repita el ejercicio
+pero ahora usando la variable income. ¿En cuál nivel de ingreso parecen haber más valores faltantes
+para las variables mencionadas?
+
+```{r}
+gg_miss_fct(bm_principales,region)
+gg_miss_fct(bm_principales,income)
+```
+
+La región con mayor cantidad de valores faltantes para ing_percapita_ajustado es Asia del este y el Pacifico, mientras que la región con mayor cantidad de valores faltantes para expectativa_vida es Latinoamerica y el Caribe.
+
+El nivel de ingreso con mayor cantidad de valores faltantes para ing_percapita_ajustado y para expectativa_vida es el de ingreso alto.
+
+10. Filtre el año 2015 y realice mediante el paquete ggplot un diagrama de dispersión de las variables
+expectativa_vida (eje y) e ing_percapita_ajustado (eje x) para ese año. El color de los puntos debe
+depender de la variable region. Puede ajustar lo que crea conveniente en la gráfica para que sea más
+fácil interpretarla. ¿Qué muestra la gráfica sobre la relación entre las variables para el 2015?
+
+```{r}
+c = bm_principales %>% filter(year==2015)
+library(ggplot2)
+ggplot(c,aes(ing_percapita_ajustado,expectativa_vida,color=region))+
+  geom_point()
+```
+
+La gráfica indica que posiblemente existe una relación entre el ingreso per capita y la expectativa de vida y,  de la misma forma, indica que el África subsahariano cuenta con el menor nivel de expectativa de vida mientras que Europa cuenta con el mayor nivel, sin tener en cuenta datos atípicos.
+
+11. Filtre la información de Colombia y realice un diagrama de lineas que muestre la evolución de expectativa_vida en el periodo de análisis. ¿Qué muestra la gráfica sobre la evolución de la expectativa de
+vida desde el 2000?
+
+```{r}
+d = bm_principales %>% filter(country=="Colombia")
+ggplot(d,aes(year,expectativa_vida)) + geom_line(color="purple")
+```
+
+La gráfica muestra que la expectativa de vida en Colombia para el año 2015 es alrededor de 78 años, y ha venido con una tendencia al alza desde el año 2000, año en el que se encontraba alrededor de 73 años.
+
+12. Filtre los años 2000 y 2015 y realice una densidad de la variable expectativa_vida en la que se muestre
+de un color distinto la distribución para cada uno de esos dos años. ¿Qué diferencias se puede ver en
+la distribución de expectativa_vida para estos dos años?
+
+```{r}
+e = bm_principales %>% filter(year==c(2000,2015))
+ggplot(e,aes(expectativa_vida)) + geom_density(aes(color=year))+facet_wrap(vars(year))
+```
+
+En ambos años la expectativa de vida con mayor densidad esta localizada alrededor de 74 años, sin embargo, el año 2000 muestra una cola izquierda mas pronunciada lo que evidencia que la media de la expectativa de vida era mucho menor.
+
+13. Filtre la información para el año 2015 y realice una gráfica que muestre la densidad de la variable
+expectativa_vida de manera separada para cada región. Use las funciones facet_grid o facet_wrap.
+¿Qué diferencias importantes se encuentran en la distribución de expectativa_vida entre las regiones?
+
+```{r}
+ggplot(c,aes(expectativa_vida)) + geom_density(aes(color=region))+facet_wrap(vars(region))
+```
+
+Las gráficas muestran como cambia la expectativa de vida para las diferentes regiones, mostrando como regiones que se consideran avanzadas y de ingreso alto, como Norte América y Europa, tienen su pico de densidad en edades mayores a comparación de las regiones de menor ingreso como el África subsahariano y el sur de Asia.
+
+### Parte 3
+
+14. Para ejecutar el encargo, cargue la base de datos saberTyTplot.Rds que está en el Drive.
+
+```{r}
+f = readRDS("C:/Users/jnico/Downloads/saberTyTplot.Rds")
+```
+
+15. Genere el código mediante el paquete ggplot2 para que quede lo más parecida posible con dos condiciones: 1. A color y 2. A partir de los datos. Transforme las variables de la base acorde a lo que se
+requiera.
+
+Primero se arregla la base de datos.
+
+```{r}
+f %<>% drop_na(estu_estadocivil)
+f %<>% filter(estu_estadocivil==c("soltero","unión libre","casado","separado y/o viudo","separado / viudo"))
+levels(f$estu_estadocivil) = c(levels(f$estu_estadocivil),"sepoviu")
+f = f %>% mutate(estu_estadocivil = replace(estu_estadocivil, estu_estadocivil == "separado y/o viudo","sepoviu"))
+f = f %>% mutate(estu_estadocivil = replace(estu_estadocivil, estu_estadocivil == "separado / viudo","sepoviu"))
+f$estu_estadocivil=factor(f$estu_estadocivil,levels = c("soltero","unión libre","casado","sepoviu"))
+```
+
+Para la gráfica se usa el siguiente código:
+
+```{r}
+library(scales)
+ggplot(f,aes(estu_estadocivil,stat(prop),group=1))+geom_bar(aes(fill="estu_estadocivil")) +
+  scale_x_discrete(labels=c("Soltero","Union libre","Casado","Separado o viudo"),na.translate= FALSE)+
+  scale_y_continuous(labels = label_percent()) + 
+  scale_fill_brewer(palette = "Blues") + geom_text(aes(label = percent(..count../sum(..count..))),
+                                        stat="count",position = position_stack(0.96),color="Black") +
+  labs(title = "Estado civil de la muestra (%)",subtitle = "Estudiantes Saber 11",
+       x="Estado civil",y="Porcentaje")
+```
+
